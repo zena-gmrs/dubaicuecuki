@@ -1,0 +1,306 @@
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Arial,Helvetica,sans-serif;
+}
+
+body{
+    overflow:hidden;
+    background:#000;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+}
+
+#loading{
+    position:fixed;
+    inset:0;
+    background:#000;
+    color:#00f7ff;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    z-index:999;
+}
+
+.loader{
+    width:70px;
+    height:70px;
+    border-radius:50%;
+    border:6px solid rgba(0,255,255,.15);
+    border-top:6px solid cyan;
+    animation:spin 1s linear infinite;
+    margin-bottom:20px;
+}
+
+@keyframes spin{
+    to{
+        transform:rotate(360deg);
+    }
+}
+
+#app{
+    width:100%;
+    height:100%;
+}
+
+.camera{
+    width:100%;
+    height:100%;
+    position:relative;
+    overflow:hidden;
+}
+
+video{
+    position:absolute;
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    transform:scaleX(-1);
+}
+
+canvas{
+    position:absolute;
+    width:100%;
+    height:100%;
+    pointer-events:none;
+    transform:scaleX(-1);
+}
+
+.hud{
+    position:absolute;
+    inset:0;
+    pointer-events:none;
+}
+
+.corner{
+    position:absolute;
+    width:90px;
+    height:90px;
+    border:4px solid #00ffff;
+    box-shadow:
+        0 0 20px cyan,
+        0 0 40px cyan;
+}
+
+.top-left{
+    top:30px;
+    left:30px;
+    border-right:none;
+    border-bottom:none;
+}
+
+.top-right{
+    top:30px;
+    right:30px;
+    border-left:none;
+    border-bottom:none;
+}
+
+.bottom-left{
+    bottom:30px;
+    left:30px;
+    border-right:none;
+    border-top:none;
+}
+
+.bottom-right{
+    bottom:30px;
+    right:30px;
+    border-left:none;
+    border-top:none;
+}
+
+.scan-line{
+    position:absolute;
+    width:100%;
+    height:4px;
+    background:cyan;
+    box-shadow:
+        0 0 15px cyan,
+        0 0 35px cyan;
+    animation:scan 3s linear infinite;
+}
+
+@keyframes scan{
+    0%{
+        top:-5%;
+    }
+
+    100%{
+        top:105%;
+    }
+}
+
+#status{
+    position:absolute;
+    top:35px;
+    left:50%;
+    transform:translateX(-50%);
+    color:#00ffff;
+    font-size:22px;
+    letter-spacing:6px;
+    text-shadow:0 0 12px cyan;
+}
+
+#fps{
+    position:absolute;
+    top:80px;
+    right:40px;
+    color:#00ffff;
+    font-size:18px;
+    text-shadow:0 0 10px cyan;
+}
+
+#subject{
+    position:absolute;
+    right:40px;
+    top:140px;
+    width:270px;
+    border:2px solid cyan;
+    background:rgba(0,255,255,.08);
+    backdrop-filter:blur(8px);
+    padding:20px;
+    box-shadow:
+        0 0 20px cyan,
+        inset 0 0 15px rgba(0,255,255,.2);
+}
+
+#subject .title{
+    font-size:13px;
+    color:#66ffff;
+    margin-bottom:15px;
+}
+
+#subject h2{
+    color:#fff;
+    font-size:38px;
+    line-height:38px;
+    letter-spacing:2px;
+}
+
+#subject p{
+    color:#00ffff;
+    margin-top:15px;
+    font-size:14px;
+}
+
+#bottom{
+    position:absolute;
+    left:0;
+    bottom:0;
+    width:100%;
+    height:80px;
+    background:rgba(0,0,0,.45);
+    border-top:2px solid cyan;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:0 40px;
+    color:#00ffff;
+    backdrop-filter:blur(12px);
+}
+
+.left,
+.right{
+    font-size:15px;
+    letter-spacing:2px;
+}
+
+.center{
+    display:flex;
+    justify-content:center;
+    align-items:center;
+}
+
+.camera-icon{
+    width:60px;
+    height:60px;
+    border-radius:50%;
+    border:2px solid cyan;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    font-size:30px;
+    box-shadow:
+        0 0 20px cyan,
+        inset 0 0 20px cyan;
+}
+
+.hud::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:
+    repeating-linear-gradient(
+        transparent 0px,
+        transparent 3px,
+        rgba(0,255,255,.05) 4px
+    );
+}
+
+.hud::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:
+    linear-gradient(
+        rgba(0,255,255,.08),
+        transparent,
+        rgba(0,255,255,.08)
+    );
+}
+
+@keyframes pulse{
+    0%{
+        opacity:.3;
+    }
+
+    50%{
+        opacity:1;
+    }
+
+    100%{
+        opacity:.3;
+    }
+}
+
+.corner{
+    animation:pulse 1.5s infinite;
+}
+
+@media(max-width:768px){
+
+#subject{
+    width:190px;
+    right:15px;
+}
+
+#subject h2{
+    font-size:26px;
+    line-height:28px;
+}
+
+#status{
+    font-size:15px;
+}
+
+#fps{
+    font-size:14px;
+}
+
+.left,
+.right{
+    font-size:12px;
+}
+
+.camera-icon{
+    width:45px;
+    height:45px;
+    font-size:22px;
+}
+
+}
