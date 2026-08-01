@@ -4,133 +4,84 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Manual Hand Tracking</title>
+<title>Hand Tracking Effect</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
 
 <style>
-    * {
-        box-sizing: border-box;
-    }
+* {
+    box-sizing: border-box;
+}
 
-    body {
-        margin: 0;
-        background: #111;
-        color: white;
-        font-family: Arial, sans-serif;
-        text-align: center;
-    }
+body {
+    margin: 0;
+    background: #111;
+    color: white;
+    font-family: Arial, sans-serif;
+    overflow: hidden;
+}
 
-    h1 {
-        margin: 20px 0 5px;
-    }
+.container {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
 
-    #status {
-        color: #aaa;
-        margin-bottom: 15px;
-    }
+video {
+    display: none;
+}
 
-    .camera {
-        position: relative;
-        width: min(900px, 95vw);
-        margin: auto;
-        overflow: hidden;
-        border-radius: 15px;
-        background: #000;
-    }
+canvas {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #111;
+}
 
-    video {
-        width: 100%;
-        display: block;
-        transform: scaleX(-1);
-    }
+.info {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    z-index: 10;
 
-    canvas {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
-        height: 100%;
-        transform: scaleX(-1);
-        pointer-events: none;
-    }
+    padding: 10px 15px;
+    border-radius: 12px;
 
-    #info {
-        margin: 15px auto;
-        width: min(900px, 95vw);
-        padding: 15px;
-        background: #1c1c1c;
-        border-radius: 12px;
-        text-align: left;
-    }
+    background: rgba(0,0,0,.6);
+    backdrop-filter: blur(8px);
 
-    .value {
-        color: #00ff88;
-        font-weight: bold;
-    }
+    font-size: 14px;
+}
 
-    button {
-        border: 0;
-        padding: 12px 20px;
-        border-radius: 8px;
-        cursor: pointer;
-        font-weight: bold;
-        margin-bottom: 15px;
-    }
+.status {
+    color: #00ff88;
+}
+
+.error {
+    color: #ff4444;
+}
 </style>
 </head>
 
 <body>
 
-<h1>Manual Hand Tracking</h1>
+<div class="container">
 
-<div id="status">
-    Kamera belum aktif
-</div>
-
-<button id="startBtn">
-    START CAMERA
-</button>
-
-<div class="camera">
     <video id="video" autoplay playsinline></video>
+
     <canvas id="canvas"></canvas>
-</div>
 
-<div id="info">
-
-    <div>
-        Status:
-        <span class="value" id="handStatus">
-            Tidak ada tangan
-        </span>
-    </div>
-
-    <div>
-        X:
-        <span class="value" id="posX">0</span>
-    </div>
-
-    <div>
-        Y:
-        <span class="value" id="posY">0</span>
-    </div>
-
-    <div>
-        Gerakan:
-        <span class="value" id="movement">
-            Diam
-        </span>
-    </div>
-
-    <div>
-        Kecepatan:
-        <span class="value" id="speed">
-            0
-        </span>
+    <div class="info">
+        Hand Tracking:
+        <span id="status" class="status">Loading...</span>
     </div>
 
 </div>
-
-<canvas id="processCanvas" style="display:none;"></canvas>
 
 <script>
 
@@ -138,372 +89,489 @@ const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
-const processCanvas = document.getElementById("processCanvas");
-const processCtx = processCanvas.getContext("2d");
-
-const startBtn = document.getElementById("startBtn");
-
 const statusText = document.getElementById("status");
-const handStatus = document.getElementById("handStatus");
-
-const posX = document.getElementById("posX");
-const posY = document.getElementById("posY");
-
-const movementText = document.getElementById("movement");
-const speedText = document.getElementById("speed");
 
 
-let previousX = null;
-let previousY = null;
+// ======================================================
+// SETTING
+// ======================================================
 
-let smoothX = null;
-let smoothY = null;
+const MAX_HANDS = 2;
 
-let lastTime = performance.now();
+// Seberapa kuat smoothing
+const SMOOTHING = 0.35;
 
-let running = false;
+// Ukuran area grayscale di sekitar tangan
+const HAND_PADDING = 25;
+
+// panjang history tracking
+const TRAIL_LENGTH = 18;
 
 
-/*
-====================================================
-START CAMERA
-====================================================
-*/
+// ======================================================
+// DATA TRACKING
+// ======================================================
 
-startBtn.addEventListener("click", async () => {
+let previousHands = [];
 
-    try {
+let trails = [];
 
-        const stream = await navigator.mediaDevices.getUserMedia({
-            video: {
-                width: {
-                    ideal: 640
-                },
-                height: {
-                    ideal: 480
-                },
-                facingMode: "user"
-            },
-            audio: false
-        });
 
-        video.srcObject = stream;
+// ======================================================
+// MEDIAPIPE
+// ======================================================
 
-        statusText.textContent = "Kamera aktif";
+const hands = new Hands({
+    locateFile: (file) => {
 
-        running = true;
-
-        video.addEventListener("loadedmetadata", () => {
-
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-
-            processCanvas.width = video.videoWidth;
-            processCanvas.height = video.videoHeight;
-
-            requestAnimationFrame(trackHand);
-
-        });
-
-    } catch (error) {
-
-        console.error(error);
-
-        statusText.textContent =
-            "Kamera gagal dibuka";
-
-        alert(
-            "Kamera tidak bisa digunakan.\n\n" +
-            "Pastikan izin kamera sudah diberikan."
-        );
+        return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
 
     }
+});
+
+
+hands.setOptions({
+
+    maxNumHands: MAX_HANDS,
+
+    modelComplexity: 1,
+
+    minDetectionConfidence: 0.65,
+
+    minTrackingConfidence: 0.65
 
 });
 
 
-/*
-====================================================
-SKIN COLOR DETECTION
-====================================================
-*/
+hands.onResults(onResults);
 
-function isSkin(r, g, b) {
 
-    /*
-    Threshold warna kulit.
+// ======================================================
+// CAMERA
+// ======================================================
 
-    Ini sengaja dibuat cukup longgar
-    supaya tangan tidak gampang hilang.
-    */
+const camera = new Camera(video, {
 
-    const condition1 =
-        r > 80 &&
-        g > 40 &&
-        b > 20;
+    onFrame: async () => {
 
-    const condition2 =
-        r > g &&
-        r > b;
+        await hands.send({
+            image: video
+        });
 
-    const condition3 =
-        Math.abs(r - g) > 10;
+    },
 
-    const condition4 =
-        r + g + b > 180;
+    width: 1280,
+    height: 720
 
-    return (
-        condition1 &&
-        condition2 &&
-        condition3 &&
-        condition4
-    );
+});
+
+
+camera.start()
+.then(() => {
+
+    statusText.textContent = "Camera aktif";
+
+})
+.catch((error) => {
+
+    console.error(error);
+
+    statusText.textContent = "Camera gagal";
+    statusText.className = "error";
+
+});
+
+
+// ======================================================
+// RESIZE CANVAS
+// ======================================================
+
+function resizeCanvas() {
+
+    if (!video.videoWidth || !video.videoHeight)
+        return;
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+}
+
+video.addEventListener("loadedmetadata", resizeCanvas);
+
+window.addEventListener("resize", resizeCanvas);
+
+
+// ======================================================
+// SMOOTHING
+// ======================================================
+
+function smoothPoint(oldPoint, newPoint) {
+
+    if (!oldPoint)
+        return {
+            x: newPoint.x,
+            y: newPoint.y
+        };
+
+    return {
+
+        x:
+            oldPoint.x +
+            (newPoint.x - oldPoint.x) * SMOOTHING,
+
+        y:
+            oldPoint.y +
+            (newPoint.y - oldPoint.y) * SMOOTHING
+
+    };
 
 }
 
 
-/*
-====================================================
-HAND DETECTION
-====================================================
-*/
+// ======================================================
+// HITUNG BOUNDING BOX TANGAN
+// ======================================================
 
-function detectHand() {
+function getHandBox(landmarks) {
 
-    processCtx.drawImage(
-        video,
-        0,
-        0,
-        processCanvas.width,
-        processCanvas.height
-    );
+    let minX = 1;
+    let minY = 1;
 
+    let maxX = 0;
+    let maxY = 0;
+
+    landmarks.forEach(point => {
+
+        minX = Math.min(minX, point.x);
+        minY = Math.min(minY, point.y);
+
+        maxX = Math.max(maxX, point.x);
+        maxY = Math.max(maxY, point.y);
+
+    });
+
+    return {
+
+        minX,
+        minY,
+        maxX,
+        maxY
+
+    };
+
+}
+
+
+// ======================================================
+// GRAYSCALE AREA
+// ======================================================
+
+function drawGrayHandArea(landmarks) {
+
+    const box = getHandBox(landmarks);
+
+    const paddingX =
+        HAND_PADDING / canvas.width;
+
+    const paddingY =
+        HAND_PADDING / canvas.height;
+
+
+    const x =
+        (box.minX - paddingX) *
+        canvas.width;
+
+    const y =
+        (box.minY - paddingY) *
+        canvas.height;
+
+    const width =
+        (box.maxX - box.minX +
+        paddingX * 2) *
+        canvas.width;
+
+    const height =
+        (box.maxY - box.minY +
+        paddingY * 2) *
+        canvas.height;
+
+
+    // Simpan bagian tangan
     const imageData =
-        processCtx.getImageData(
-            0,
-            0,
-            processCanvas.width,
-            processCanvas.height
+        ctx.getImageData(
+            Math.max(0, x),
+            Math.max(0, y),
+            Math.min(width, canvas.width),
+            Math.min(height, canvas.height)
         );
+
 
     const data = imageData.data;
 
-    let totalX = 0;
-    let totalY = 0;
 
-    let count = 0;
+    // grayscale
+    for (let i = 0; i < data.length; i += 4) {
 
-    /*
-    Scan setiap beberapa pixel.
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
 
-    Tidak semua pixel diproses supaya
-    browser tidak megap-megap.
-    */
 
-    const step = 4;
+        const gray =
+            0.299 * r +
+            0.587 * g +
+            0.114 * b;
+
+
+        data[i] = gray;
+        data[i + 1] = gray;
+        data[i + 2] = gray;
+
+    }
+
+
+    ctx.putImageData(
+        imageData,
+        Math.max(0, x),
+        Math.max(0, y)
+    );
+
+
+    // Border tracking
+    ctx.save();
+
+    ctx.strokeStyle =
+        "rgba(255,255,255,.75)";
+
+    ctx.lineWidth = 2;
+
+    ctx.setLineDash([
+        8,
+        6
+    ]);
+
+    ctx.strokeRect(
+        x,
+        y,
+        width,
+        height
+    );
+
+    ctx.restore();
+
+}
+
+
+// ======================================================
+// DRAW LANDMARK
+// ======================================================
+
+function drawHandSkeleton(landmarks) {
+
+    const connections = [
+
+        [0,1],
+        [1,2],
+        [2,3],
+        [3,4],
+
+        [0,5],
+        [5,6],
+        [6,7],
+        [7,8],
+
+        [5,9],
+        [9,10],
+        [10,11],
+        [11,12],
+
+        [9,13],
+        [13,14],
+        [14,15],
+        [15,16],
+
+        [13,17],
+        [17,18],
+        [18,19],
+        [19,20],
+
+        [0,17]
+
+    ];
+
+
+    ctx.save();
+
+    ctx.strokeStyle =
+        "rgba(255,255,255,.9)";
+
+    ctx.lineWidth = 2;
+
+
+    connections.forEach(connection => {
+
+        const a =
+            landmarks[connection[0]];
+
+        const b =
+            landmarks[connection[1]];
+
+
+        ctx.beginPath();
+
+        ctx.moveTo(
+            a.x * canvas.width,
+            a.y * canvas.height
+        );
+
+        ctx.lineTo(
+            b.x * canvas.width,
+            b.y * canvas.height
+        );
+
+        ctx.stroke();
+
+    });
+
+
+    // titik
+    landmarks.forEach(point => {
+
+        ctx.beginPath();
+
+        ctx.arc(
+            point.x * canvas.width,
+            point.y * canvas.height,
+            3,
+            0,
+            Math.PI * 2
+        );
+
+        ctx.fillStyle = "white";
+
+        ctx.fill();
+
+    });
+
+
+    ctx.restore();
+
+}
+
+
+// ======================================================
+// TRAIL
+// ======================================================
+
+function updateTrail(index, point) {
+
+    if (!trails[index])
+        trails[index] = [];
+
+
+    trails[index].push({
+
+        x: point.x,
+        y: point.y
+
+    });
+
+
+    if (trails[index].length > TRAIL_LENGTH) {
+
+        trails[index].shift();
+
+    }
+
+}
+
+
+// ======================================================
+// DRAW TRAIL
+// ======================================================
+
+function drawTrail(index) {
+
+    const trail =
+        trails[index];
+
+    if (!trail || trail.length < 2)
+        return;
+
+
+    ctx.save();
+
 
     for (
-        let y = 0;
-        y < processCanvas.height;
-        y += step
+        let i = 1;
+        i < trail.length;
+        i++
     ) {
 
-        for (
-            let x = 0;
-            x < processCanvas.width;
-            x += step
-        ) {
+        const previous =
+            trail[i - 1];
 
-            const index =
-                (y * processCanvas.width + x) * 4;
-
-            const r = data[index];
-            const g = data[index + 1];
-            const b = data[index + 2];
-
-            if (isSkin(r, g, b)) {
-
-                totalX += x;
-                totalY += y;
-
-                count++;
-
-            }
-
-        }
-
-    }
+        const current =
+            trail[i];
 
 
-    /*
-    Kalau pixel kulit terlalu sedikit,
-    anggap tangan tidak ditemukan.
-    */
-
-    if (count < 100) {
-
-        return null;
-
-    }
+        const alpha =
+            i / trail.length;
 
 
-    const centerX =
-        totalX / count;
+        ctx.beginPath();
 
-    const centerY =
-        totalY / count;
+        ctx.moveTo(
+            previous.x * canvas.width,
+            previous.y * canvas.height
+        );
 
-
-    return {
-        x: centerX,
-        y: centerY,
-        pixels: count
-    };
-
-}
-
-
-/*
-====================================================
-SMOOTHING
-====================================================
-*/
-
-function smoothPosition(x, y) {
-
-    if (smoothX === null) {
-
-        smoothX = x;
-        smoothY = y;
-
-        return {
-            x,
-            y
-        };
-
-    }
-
-
-    const smoothing = 0.25;
-
-    smoothX =
-        smoothX +
-        (x - smoothX) *
-        smoothing;
-
-    smoothY =
-        smoothY +
-        (y - smoothY) *
-        smoothing;
-
-
-    return {
-        x: smoothX,
-        y: smoothY
-    };
-
-}
-
-
-/*
-====================================================
-MOVEMENT
-====================================================
-*/
-
-function calculateMovement(x, y) {
-
-    if (
-        previousX === null ||
-        previousY === null
-    ) {
-
-        previousX = x;
-        previousY = y;
-
-        return {
-            direction: "Diam",
-            speed: 0
-        };
-
-    }
-
-
-    const dx =
-        x - previousX;
-
-    const dy =
-        y - previousY;
-
-
-    const distance =
-        Math.sqrt(
-            dx * dx +
-            dy * dy
+        ctx.lineTo(
+            current.x * canvas.width,
+            current.y * canvas.height
         );
 
 
-    let direction = "Diam";
+        ctx.strokeStyle =
+            `rgba(255,255,255,${alpha})`;
 
+        ctx.lineWidth =
+            2 + alpha * 3;
 
-    const threshold = 8;
-
-
-    if (distance > threshold) {
-
-        if (
-            Math.abs(dx) >
-            Math.abs(dy)
-        ) {
-
-            if (dx > 0) {
-
-                direction = "Kanan";
-
-            } else {
-
-                direction = "Kiri";
-
-            }
-
-        } else {
-
-            if (dy > 0) {
-
-                direction = "Bawah";
-
-            } else {
-
-                direction = "Atas";
-
-            }
-
-        }
+        ctx.stroke();
 
     }
 
 
-    previousX = x;
-    previousY = y;
-
-
-    return {
-        direction,
-        speed: Math.round(distance)
-    };
+    ctx.restore();
 
 }
 
 
-/*
-====================================================
-DRAW TRACKING
-====================================================
-*/
+// ======================================================
+// MAIN RESULT
+// ======================================================
 
-function drawTracking(x, y) {
+function onResults(results) {
 
-    ctx.clearRect(
+    if (!canvas.width || !canvas.height)
+        resizeCanvas();
+
+
+    // mirror kamera
+    ctx.save();
+
+    ctx.scale(-1, 1);
+
+    ctx.translate(
+        -canvas.width,
+        0
+    );
+
+
+    // gambar kamera
+    ctx.drawImage(
+        results.image,
         0,
         0,
         canvas.width,
@@ -511,195 +579,159 @@ function drawTracking(x, y) {
     );
 
 
-    /*
-    Titik utama
-    */
-
-    ctx.beginPath();
-
-    ctx.arc(
-        x,
-        y,
-        18,
-        0,
-        Math.PI * 2
-    );
-
-    ctx.strokeStyle = "#00ff88";
-    ctx.lineWidth = 4;
-
-    ctx.stroke();
+    ctx.restore();
 
 
-    /*
-    Titik tengah
-    */
-
-    ctx.beginPath();
-
-    ctx.arc(
-        x,
-        y,
-        5,
-        0,
-        Math.PI * 2
-    );
-
-    ctx.fillStyle = "#00ff88";
-
-    ctx.fill();
+    const detectedHands =
+        results.multiHandLandmarks || [];
 
 
-    /*
-    Crosshair horizontal
-    */
-
-    ctx.beginPath();
-
-    ctx.moveTo(
-        x - 35,
-        y
-    );
-
-    ctx.lineTo(
-        x + 35,
-        y
-    );
-
-    ctx.strokeStyle = "#00ff88";
-    ctx.lineWidth = 2;
-
-    ctx.stroke();
+    statusText.textContent =
+        detectedHands.length > 0
+            ? `${detectedHands.length} hand detected`
+            : "No hand";
 
 
-    /*
-    Crosshair vertical
-    */
+    // ==================================================
+    // PROCESS HAND
+    // ==================================================
 
-    ctx.beginPath();
-
-    ctx.moveTo(
-        x,
-        y - 35
-    );
-
-    ctx.lineTo(
-        x,
-        y + 35
-    );
-
-    ctx.stroke();
+    detectedHands.forEach((landmarks, handIndex) => {
 
 
-    /*
-    Koordinat
-    */
+        // smoothing
+        const smoothed = landmarks.map(
+            (point, index) => {
 
-    ctx.font = "16px Arial";
+                const old =
+                    previousHands[handIndex]?.[index];
 
-    ctx.fillStyle = "#00ff88";
+                return smoothPoint(
+                    old,
+                    point
+                );
 
-    ctx.fillText(
-        `X: ${Math.round(x)} Y: ${Math.round(y)}`,
-        x + 25,
-        y - 25
-    );
+            }
+        );
+
+
+        if (!previousHands[handIndex])
+            previousHands[handIndex] = [];
+
+
+        previousHands[handIndex] =
+            smoothed;
+
+
+        // ----------------------------------------------
+        // GRAYSCALE
+        // ----------------------------------------------
+
+        drawGrayHandArea(
+            smoothed
+        );
+
+
+        // ----------------------------------------------
+        // TRACKING INDEX FINGER
+        // ----------------------------------------------
+
+        const indexFinger =
+            smoothed[8];
+
+
+        updateTrail(
+            handIndex,
+            indexFinger
+        );
+
+
+        drawTrail(
+            handIndex
+        );
+
+
+        // ----------------------------------------------
+        // SKELETON
+        // ----------------------------------------------
+
+        drawHandSkeleton(
+            smoothed
+        );
+
+
+        // ----------------------------------------------
+        // INDEX FINGER POINT
+        // ----------------------------------------------
+
+        const x =
+            indexFinger.x *
+            canvas.width;
+
+        const y =
+            indexFinger.y *
+            canvas.height;
+
+
+        ctx.save();
+
+
+        ctx.beginPath();
+
+        ctx.arc(
+            x,
+            y,
+            8,
+            0,
+            Math.PI * 2
+        );
+
+
+        ctx.strokeStyle =
+            "white";
+
+        ctx.lineWidth = 2;
+
+        ctx.stroke();
+
+
+        ctx.restore();
+
+
+    });
+
+
+    // hapus data tangan yang hilang
+    if (
+        previousHands.length >
+        detectedHands.length
+    ) {
+
+        previousHands.length =
+            detectedHands.length;
+
+        trails.length =
+            detectedHands.length;
+
+    }
 
 }
 
 
-/*
-====================================================
-MAIN TRACKING LOOP
-====================================================
-*/
+// ======================================================
+// ERROR HANDLING
+// ======================================================
 
-function trackHand() {
+window.addEventListener(
+    "beforeunload",
+    () => {
 
-    if (!running) {
-        return;
-    }
-
-
-    const hand = detectHand();
-
-
-    if (hand) {
-
-        const position =
-            smoothPosition(
-                hand.x,
-                hand.y
-            );
-
-
-        const movement =
-            calculateMovement(
-                position.x,
-                position.y
-            );
-
-
-        drawTracking(
-            position.x,
-            position.y
-        );
-
-
-        handStatus.textContent =
-            "Terdeteksi";
-
-
-        posX.textContent =
-            Math.round(position.x);
-
-
-        posY.textContent =
-            Math.round(position.y);
-
-
-        movementText.textContent =
-            movement.direction;
-
-
-        speedText.textContent =
-            movement.speed;
-
-
-    } else {
-
-        ctx.clearRect(
-            0,
-            0,
-            canvas.width,
-            canvas.height
-        );
-
-
-        handStatus.textContent =
-            "Tidak ada tangan";
-
-
-        movementText.textContent =
-            "Diam";
-
-
-        speedText.textContent =
-            "0";
-
-
-        /*
-        Jangan langsung reset posisi.
-        Biar tracking nggak gampang ngaco
-        ketika tangan hilang sebentar.
-        */
+        try {
+            camera.stop();
+        } catch (e) {}
 
     }
-
-
-    requestAnimationFrame(trackHand);
-
-}
+);
 
 </script>
 
