@@ -1,739 +1,112 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Hand Tracking Effect</title>
+<title>Cyber Hand Tracking</title>
 
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+<link rel="stylesheet" href="style.css">
 
-<style>
-* {
-    box-sizing: border-box;
-}
-
-body {
-    margin: 0;
-    background: #111;
-    color: white;
-    font-family: Arial, sans-serif;
-    overflow: hidden;
-}
-
-.container {
-    width: 100vw;
-    height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    position: relative;
-}
-
-video {
-    display: none;
-}
-
-canvas {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    background: #111;
-}
-
-.info {
-    position: absolute;
-    top: 20px;
-    left: 20px;
-    z-index: 10;
-
-    padding: 10px 15px;
-    border-radius: 12px;
-
-    background: rgba(0,0,0,.6);
-    backdrop-filter: blur(8px);
-
-    font-size: 14px;
-}
-
-.status {
-    color: #00ff88;
-}
-
-.error {
-    color: #ff4444;
-}
-</style>
 </head>
 
 <body>
 
-<div class="container">
+<div id="loading">
 
-    <video id="video" autoplay playsinline></video>
+<div class="loader"></div>
 
-    <canvas id="canvas"></canvas>
-
-    <div class="info">
-        Hand Tracking:
-        <span id="status" class="status">Loading...</span>
-    </div>
+<p>Loading AI Camera...</p>
 
 </div>
 
-<script>
+<div id="app">
 
-const video = document.getElementById("video");
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
+<div class="camera">
 
-const statusText = document.getElementById("status");
+<video id="webcam" autoplay playsinline></video>
 
+<canvas id="output"></canvas>
 
-// ======================================================
-// SETTING
-// ======================================================
+<div class="hud">
 
-const MAX_HANDS = 2;
+<div class="corner top-left"></div>
+<div class="corner top-right"></div>
+<div class="corner bottom-left"></div>
+<div class="corner bottom-right"></div>
 
-// Seberapa kuat smoothing
-const SMOOTHING = 0.35;
+<div class="scan-line"></div>
 
-// Ukuran area grayscale di sekitar tangan
-const HAND_PADDING = 25;
+<div id="status">
+CYBER FRAME // ACTIVE
+</div>
 
-// panjang history tracking
-const TRAIL_LENGTH = 18;
+<div id="fps">
+FPS : 0
+</div>
 
+<div id="subject">
 
-// ======================================================
-// DATA TRACKING
-// ======================================================
+<div class="title">
 
-let previousHands = [];
+CAMERA NODE / 01
 
-let trails = [];
+</div>
 
+<h2>SUBJECT</h2>
 
-// ======================================================
-// MEDIAPIPE
-// ======================================================
+<h2>DETECTION</h2>
 
-const hands = new Hands({
-    locateFile: (file) => {
+<p>HAND TRACKING ACTIVE</p>
 
-        return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+</div>
 
-    }
-});
+<div id="bottom">
 
+<div class="left">
 
-hands.setOptions({
+CYBER FRAME AKTIF.
 
-    maxNumHands: MAX_HANDS,
+</div>
 
-    modelComplexity: 1,
+<div class="center">
 
-    minDetectionConfidence: 0.65,
+<div class="camera-icon">
 
-    minTrackingConfidence: 0.65
+📷
 
-});
+</div>
 
+</div>
 
-hands.onResults(onResults);
+<div class="right">
 
+MEDIAPIPE AI
 
-// ======================================================
-// CAMERA
-// ======================================================
+</div>
 
-const camera = new Camera(video, {
+</div>
 
-    onFrame: async () => {
+</div>
 
-        await hands.send({
-            image: video
-        });
+</div>
 
-    },
+</div>
 
-    width: 1280,
-    height: 720
+<script type="module">
 
-});
+import {
+HandLandmarker,
+FilesetResolver
+} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18";
 
-
-camera.start()
-.then(() => {
-
-    statusText.textContent = "Camera aktif";
-
-})
-.catch((error) => {
-
-    console.error(error);
-
-    statusText.textContent = "Camera gagal";
-    statusText.className = "error";
-
-});
-
-
-// ======================================================
-// RESIZE CANVAS
-// ======================================================
-
-function resizeCanvas() {
-
-    if (!video.videoWidth || !video.videoHeight)
-        return;
-
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-
-}
-
-video.addEventListener("loadedmetadata", resizeCanvas);
-
-window.addEventListener("resize", resizeCanvas);
-
-
-// ======================================================
-// SMOOTHING
-// ======================================================
-
-function smoothPoint(oldPoint, newPoint) {
-
-    if (!oldPoint)
-        return {
-            x: newPoint.x,
-            y: newPoint.y
-        };
-
-    return {
-
-        x:
-            oldPoint.x +
-            (newPoint.x - oldPoint.x) * SMOOTHING,
-
-        y:
-            oldPoint.y +
-            (newPoint.y - oldPoint.y) * SMOOTHING
-
-    };
-
-}
-
-
-// ======================================================
-// HITUNG BOUNDING BOX TANGAN
-// ======================================================
-
-function getHandBox(landmarks) {
-
-    let minX = 1;
-    let minY = 1;
-
-    let maxX = 0;
-    let maxY = 0;
-
-    landmarks.forEach(point => {
-
-        minX = Math.min(minX, point.x);
-        minY = Math.min(minY, point.y);
-
-        maxX = Math.max(maxX, point.x);
-        maxY = Math.max(maxY, point.y);
-
-    });
-
-    return {
-
-        minX,
-        minY,
-        maxX,
-        maxY
-
-    };
-
-}
-
-
-// ======================================================
-// GRAYSCALE AREA
-// ======================================================
-
-function drawGrayHandArea(landmarks) {
-
-    const box = getHandBox(landmarks);
-
-    const paddingX =
-        HAND_PADDING / canvas.width;
-
-    const paddingY =
-        HAND_PADDING / canvas.height;
-
-
-    const x =
-        (box.minX - paddingX) *
-        canvas.width;
-
-    const y =
-        (box.minY - paddingY) *
-        canvas.height;
-
-    const width =
-        (box.maxX - box.minX +
-        paddingX * 2) *
-        canvas.width;
-
-    const height =
-        (box.maxY - box.minY +
-        paddingY * 2) *
-        canvas.height;
-
-
-    // Simpan bagian tangan
-    const imageData =
-        ctx.getImageData(
-            Math.max(0, x),
-            Math.max(0, y),
-            Math.min(width, canvas.width),
-            Math.min(height, canvas.height)
-        );
-
-
-    const data = imageData.data;
-
-
-    // grayscale
-    for (let i = 0; i < data.length; i += 4) {
-
-        const r = data[i];
-        const g = data[i + 1];
-        const b = data[i + 2];
-
-
-        const gray =
-            0.299 * r +
-            0.587 * g +
-            0.114 * b;
-
-
-        data[i] = gray;
-        data[i + 1] = gray;
-        data[i + 2] = gray;
-
-    }
-
-
-    ctx.putImageData(
-        imageData,
-        Math.max(0, x),
-        Math.max(0, y)
-    );
-
-
-    // Border tracking
-    ctx.save();
-
-    ctx.strokeStyle =
-        "rgba(255,255,255,.75)";
-
-    ctx.lineWidth = 2;
-
-    ctx.setLineDash([
-        8,
-        6
-    ]);
-
-    ctx.strokeRect(
-        x,
-        y,
-        width,
-        height
-    );
-
-    ctx.restore();
-
-}
-
-
-// ======================================================
-// DRAW LANDMARK
-// ======================================================
-
-function drawHandSkeleton(landmarks) {
-
-    const connections = [
-
-        [0,1],
-        [1,2],
-        [2,3],
-        [3,4],
-
-        [0,5],
-        [5,6],
-        [6,7],
-        [7,8],
-
-        [5,9],
-        [9,10],
-        [10,11],
-        [11,12],
-
-        [9,13],
-        [13,14],
-        [14,15],
-        [15,16],
-
-        [13,17],
-        [17,18],
-        [18,19],
-        [19,20],
-
-        [0,17]
-
-    ];
-
-
-    ctx.save();
-
-    ctx.strokeStyle =
-        "rgba(255,255,255,.9)";
-
-    ctx.lineWidth = 2;
-
-
-    connections.forEach(connection => {
-
-        const a =
-            landmarks[connection[0]];
-
-        const b =
-            landmarks[connection[1]];
-
-
-        ctx.beginPath();
-
-        ctx.moveTo(
-            a.x * canvas.width,
-            a.y * canvas.height
-        );
-
-        ctx.lineTo(
-            b.x * canvas.width,
-            b.y * canvas.height
-        );
-
-        ctx.stroke();
-
-    });
-
-
-    // titik
-    landmarks.forEach(point => {
-
-        ctx.beginPath();
-
-        ctx.arc(
-            point.x * canvas.width,
-            point.y * canvas.height,
-            3,
-            0,
-            Math.PI * 2
-        );
-
-        ctx.fillStyle = "white";
-
-        ctx.fill();
-
-    });
-
-
-    ctx.restore();
-
-}
-
-
-// ======================================================
-// TRAIL
-// ======================================================
-
-function updateTrail(index, point) {
-
-    if (!trails[index])
-        trails[index] = [];
-
-
-    trails[index].push({
-
-        x: point.x,
-        y: point.y
-
-    });
-
-
-    if (trails[index].length > TRAIL_LENGTH) {
-
-        trails[index].shift();
-
-    }
-
-}
-
-
-// ======================================================
-// DRAW TRAIL
-// ======================================================
-
-function drawTrail(index) {
-
-    const trail =
-        trails[index];
-
-    if (!trail || trail.length < 2)
-        return;
-
-
-    ctx.save();
-
-
-    for (
-        let i = 1;
-        i < trail.length;
-        i++
-    ) {
-
-        const previous =
-            trail[i - 1];
-
-        const current =
-            trail[i];
-
-
-        const alpha =
-            i / trail.length;
-
-
-        ctx.beginPath();
-
-        ctx.moveTo(
-            previous.x * canvas.width,
-            previous.y * canvas.height
-        );
-
-        ctx.lineTo(
-            current.x * canvas.width,
-            current.y * canvas.height
-        );
-
-
-        ctx.strokeStyle =
-            `rgba(255,255,255,${alpha})`;
-
-        ctx.lineWidth =
-            2 + alpha * 3;
-
-        ctx.stroke();
-
-    }
-
-
-    ctx.restore();
-
-}
-
-
-// ======================================================
-// MAIN RESULT
-// ======================================================
-
-function onResults(results) {
-
-    if (!canvas.width || !canvas.height)
-        resizeCanvas();
-
-
-    // mirror kamera
-    ctx.save();
-
-    ctx.scale(-1, 1);
-
-    ctx.translate(
-        -canvas.width,
-        0
-    );
-
-
-    // gambar kamera
-    ctx.drawImage(
-        results.image,
-        0,
-        0,
-        canvas.width,
-        canvas.height
-    );
-
-
-    ctx.restore();
-
-
-    const detectedHands =
-        results.multiHandLandmarks || [];
-
-
-    statusText.textContent =
-        detectedHands.length > 0
-            ? `${detectedHands.length} hand detected`
-            : "No hand";
-
-
-    // ==================================================
-    // PROCESS HAND
-    // ==================================================
-
-    detectedHands.forEach((landmarks, handIndex) => {
-
-
-        // smoothing
-        const smoothed = landmarks.map(
-            (point, index) => {
-
-                const old =
-                    previousHands[handIndex]?.[index];
-
-                return smoothPoint(
-                    old,
-                    point
-                );
-
-            }
-        );
-
-
-        if (!previousHands[handIndex])
-            previousHands[handIndex] = [];
-
-
-        previousHands[handIndex] =
-            smoothed;
-
-
-        // ----------------------------------------------
-        // GRAYSCALE
-        // ----------------------------------------------
-
-        drawGrayHandArea(
-            smoothed
-        );
-
-
-        // ----------------------------------------------
-        // TRACKING INDEX FINGER
-        // ----------------------------------------------
-
-        const indexFinger =
-            smoothed[8];
-
-
-        updateTrail(
-            handIndex,
-            indexFinger
-        );
-
-
-        drawTrail(
-            handIndex
-        );
-
-
-        // ----------------------------------------------
-        // SKELETON
-        // ----------------------------------------------
-
-        drawHandSkeleton(
-            smoothed
-        );
-
-
-        // ----------------------------------------------
-        // INDEX FINGER POINT
-        // ----------------------------------------------
-
-        const x =
-            indexFinger.x *
-            canvas.width;
-
-        const y =
-            indexFinger.y *
-            canvas.height;
-
-
-        ctx.save();
-
-
-        ctx.beginPath();
-
-        ctx.arc(
-            x,
-            y,
-            8,
-            0,
-            Math.PI * 2
-        );
-
-
-        ctx.strokeStyle =
-            "white";
-
-        ctx.lineWidth = 2;
-
-        ctx.stroke();
-
-
-        ctx.restore();
-
-
-    });
-
-
-    // hapus data tangan yang hilang
-    if (
-        previousHands.length >
-        detectedHands.length
-    ) {
-
-        previousHands.length =
-            detectedHands.length;
-
-        trails.length =
-            detectedHands.length;
-
-    }
-
-}
-
-
-// ======================================================
-// ERROR HANDLING
-// ======================================================
-
-window.addEventListener(
-    "beforeunload",
-    () => {
-
-        try {
-            camera.stop();
-        } catch (e) {}
-
-    }
-);
+window.HandLandmarker=HandLandmarker;
+window.FilesetResolver=FilesetResolver;
 
 </script>
+
+<script src="script.js"></script>
 
 </body>
 </html>
