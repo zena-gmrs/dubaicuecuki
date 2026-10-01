@@ -3,15 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kuis 3D Tes Hoki Hari Ini!</title>
+    <title>CEK KHODAM & NASIB ABSURD HARI INI 🗿</title>
     <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+
         body {
             margin: 0;
             overflow: hidden;
-            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            color: white;
-            user-select: none;
+            background: #000;
+            font-family: 'Comic Sans MS', 'Chalkboard SE', 'Arial', sans-serif;
+            color: #fff;
         }
 
         #ui-container {
@@ -20,126 +24,202 @@
             width: 100%;
             text-align: center;
             pointer-events: none;
+            z-index: 10;
         }
 
         h1 {
-            margin: 0;
-            font-size: 24px;
-            text-shadow: 0 0 10px rgba(0,255,200,0.8);
+            font-size: 26px;
+            color: #ff0055;
+            text-shadow: 3px 3px 0px #00ffff;
+            margin: 0 0 5px 0;
+            text-transform: uppercase;
         }
 
         p {
             font-size: 14px;
-            color: #ccc;
+            color: #ffff00;
+            background: rgba(0, 0, 0, 0.6);
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            margin: 0;
         }
 
-        /* Modal Hasil Kuiz */
+        /* Pop-up Hasil Meme */
         #result-modal {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%) scale(0);
-            background: rgba(0, 0, 0, 0.9);
-            border: 2px solid #00ffcc;
-            padding: 30px;
-            border-radius: 15px;
+            background: #111;
+            border: 4px dashed #ff0055;
+            padding: 25px;
+            border-radius: 20px;
             text-align: center;
-            box-shadow: 0 0 20px rgba(0, 255, 204, 0.5);
-            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            max-width: 80%;
+            box-shadow: 0 0 30px #00ffff;
+            transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+            max-width: 85%;
+            width: 320px;
+            z-index: 100;
         }
 
         #result-modal.active {
             transform: translate(-50%, -50%) scale(1);
         }
 
+        .emoji-title {
+            font-size: 50px;
+            margin-bottom: 10px;
+            animation: bounce 0.5s infinite alternate;
+        }
+
         #result-text {
-            font-size: 20px;
+            font-size: 16px;
             font-weight: bold;
-            margin-bottom: 20px;
-            color: #ffe600;
+            line-height: 1.4;
+            color: #00ffcc;
+            margin-bottom: 15px;
+        }
+
+        #score-tag {
+            font-size: 13px;
+            color: #ffcc00;
+            background: #222;
+            padding: 8px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #444;
         }
 
         button {
-            background: #00ffcc;
-            color: #000;
+            background: #ff0055;
+            color: #fff;
             border: none;
-            padding: 10px 20px;
+            padding: 12px 25px;
+            font-size: 16px;
             font-weight: bold;
-            border-radius: 20px;
+            border-radius: 50px;
             cursor: pointer;
-            box-shadow: 0 0 10px #00ffcc;
+            box-shadow: 0 5px 0px #990033;
+            transition: all 0.1s;
+        }
+
+        button:active {
+            transform: translateY(4px);
+            box-shadow: 0 1px 0px #990033;
+        }
+
+        @keyframes bounce {
+            from { transform: translateY(0); }
+            to { transform: translateY(-10px); }
         }
     </style>
 </head>
 <body>
 
     <div id="ui-container">
-        <h1>🔮 TES HOKI 3D HARI INI 🔮</h1>
-        <p>Pilih salah satu kotak di bawah untuk lihat nasibmu!</p>
+        <h1>🤡 CEK KHODAM & AURA 🗿</h1>
+        <p>Pilih salah satu tumbal 3D di bawah! 👇</p>
     </div>
 
     <div id="result-modal">
-        <div id="result-text">Mendapatkan Hasil...</div>
-        <button onclick="resetQuiz()">Coba Lagi</button>
+        <div class="emoji-title" id="emoji-icon">🗿</div>
+        <div id="result-text">Menganalisis Dosa...</div>
+        <div id="score-tag" id="score-text">Khodam: Pendiam</div>
+        <button onclick="resetQuiz()">Ulangi Dosa Ini 🔄</button>
     </div>
 
-    <!-- Three.js Library -->
+    <!-- Library Three.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <script>
-        // Setup Scene
+        // Setup 3D Canvas
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // Lighting
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
-        scene.add(ambientLight);
-        const pointLight = new THREE.PointLight(0x00ffcc, 1, 100);
-        pointLight.position.set(0, 5, 5);
-        scene.add(pointLight);
+        // Pencahayaan Warna-Warni Disco
+        const light1 = new THREE.PointLight(0xff0055, 2, 50);
+        light1.position.set(-5, 5, 5);
+        scene.add(light1);
 
-        // Daftar Hasil Lucu-Lucuan
-        const hasilQuiz = [
-            "🏆 HOKI BESAR! Hari ini kamu bakal ditembak gebetan (atau minimal ditembak debt collector).",
-            "💣 ZONK! Hari ini dompetmu makin tipis, tapi dosamu makin tebal.",
-            "👑 SULTAN! Hari ini rezekimu lancar kayak air terjun, uang jajan melimpah!",
-            "👻 APES! Hari ini kamu bakal ketiduran terus ditinggal rombongan.",
-            "💖 JODOH DEKAT! Jodohmu udah berjarak 50 meter, tapi dia lagi gandengan sama yang lain."
+        const light2 = new THREE.PointLight(0x00ffff, 2, 50);
+        light2.position.set(5, -5, 5);
+        scene.add(light2);
+
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+
+        // Data Humor & Meme Absurd
+        const memeResults = [
+            {
+                emoji: "🗿",
+                text: "Hari ini kamu bakal dikacangin di grup WA, tapi tenang... Aura🗿-mu tetep dingin kayak kulkas mati.",
+                score: "Khodam: Batu Batako Senyum (Aura +999)"
+            },
+            {
+                emoji: "💀",
+                text: "Nasibmu hari ini: Ketemu mantan pas lagi pake celana pendek bolong & sendal swallow beda warna.",
+                score: "Aura: Keroyokan Sepatu Roda (Apes: 88%)"
+            },
+            {
+                emoji: "🤡",
+                text: "Mikirin dia yang udah bahagia sama orang lain. Selamat, gelar Badut Terbaik tahun ini milikmu!",
+                score: "Status: Badut Profesi Sertifikasi Halal"
+            },
+            {
+                emoji: "💸",
+                text: "Dompetmu hari ini sangat estetik, sangat bersih, sampai-sampai tidak ada uang selembar pun di dalamnya.",
+                score: "Keuangan: Sangat Minimalis & Clean"
+            },
+            {
+                emoji: "👑",
+                text: "Hari ini kamu dapet hoki gede! Kamu bakal nemu uang 2 ribu kumal yang ketlisut di saku celana jeans.",
+                score: "Keberuntungan: Sultan Dadakan"
+            },
+            {
+                emoji: "🫠",
+                text: "Rencana produktif hari ini: Buka laptop -> Bengong 2 jam -> Tidur siang -> Nyesel.",
+                score: "Tingkat Kepekaan: Meleleh Kasur"
+            }
         ];
 
-        // Buat 3 Kotak 3D
-        const boxes = [];
-        const boxGeometry = new THREE.BoxGeometry(1.5, 1.5, 1.5);
-        const colors = [0xff0055, 0x00ffcc, 0xffcc00];
+        // Buat 3 Objek 3D Absurd
+        const objects = [];
 
-        for (let i = 0; i < 3; i++) {
-            const material = new THREE.MeshPhongMaterial({ 
-                color: colors[i], 
-                shininess: 100,
-                wireframe: false 
-            });
-            const box = new THREE.Mesh(boxGeometry, material);
-            box.position.x = (i - 1) * 2.5; // Jarak antarkotak
-            box.userData = { id: i }; // Simpan ID
-            scene.add(box);
-            boxes.push(box);
-        }
+        // Objek 1: Torus Knot (Kabel Ruwet)
+        const geo1 = new THREE.TorusKnotGeometry(0.7, 0.2, 64, 8);
+        const mat1 = new THREE.MeshPhongMaterial({ color: 0xff0055, wireframe: true });
+        const obj1 = new THREE.Mesh(geo1, mat1);
+        obj1.position.x = -2.2;
 
-        camera.position.z = 6;
+        // Objek 2: Donat Warni-Warni
+        const geo2 = new THREE.TorusGeometry(0.8, 0.4, 16, 100);
+        const mat2 = new THREE.MeshPhongMaterial({ color: 0x00ffcc, shininess: 100 });
+        const obj2 = new THREE.Mesh(geo2, mat2);
+        obj2.position.x = 0;
 
-        // Raycaster untuk deteksi Klik/Sentuh pada Objek 3D
+        // Objek 3: Dadu / Bola Datar (Icosahedron)
+        const geo3 = new THREE.IcosahedronGeometry(1, 0);
+        const mat3 = new THREE.MeshPhongMaterial({ color: 0xffcc00, flatShading: true });
+        const obj3 = new THREE.Mesh(geo3, mat3);
+        obj3.position.x = 2.2;
+
+        scene.add(obj1, obj2, obj3);
+        objects.push(obj1, obj2, obj3);
+
+        camera.position.z = 5;
+
+        // Logika Klik Objek 3D
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
         let isAnswered = false;
 
-        function onPointerDown(event) {
+        function handleClick(event) {
             if (isAnswered) return;
 
-            // Hitung posisi klik/sentuhan
             const clientX = event.clientX || (event.touches && event.touches[0].clientX);
             const clientY = event.clientY || (event.touches && event.touches[0].clientY);
 
@@ -147,49 +227,64 @@
             mouse.y = -(clientY / window.innerHeight) * 2 + 1;
 
             raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObjects(boxes);
+            const intersects = raycaster.intersectObjects(objects);
 
             if (intersects.length > 0) {
-                const clickedBox = intersects[0].object;
+                const clickedObj = intersects[0].object;
                 isAnswered = true;
 
-                // Animasi Rotasi Cepat saat diklik
-                let count = 0;
-                const spinInterval = setInterval(() => {
-                    clickedBox.rotation.y += 0.3;
-                    clickedBox.rotation.x += 0.3;
-                    count++;
-                    if(count > 15) {
-                        clearInterval(spinInterval);
-                        showResult();
+                // Animasi muter gila-gilaan pas diklik
+                let speed = 0.1;
+                const spin = setInterval(() => {
+                    clickedObj.rotation.x += speed;
+                    clickedObj.rotation.y += speed;
+                    clickedObj.scale.x += 0.05;
+                    clickedObj.scale.y += 0.05;
+                    speed += 0.02;
+
+                    if (clickedObj.scale.x > 2.5) {
+                        clearInterval(spin);
+                        showMemeResult();
                     }
                 }, 30);
             }
         }
 
-        window.addEventListener('pointerdown', onPointerDown);
+        window.addEventListener('pointerdown', handleClick);
 
-        function showResult() {
-            const randomResult = hasilQuiz[Math.floor(Math.random() * hasilQuiz.length)];
-            document.getElementById('result-text').innerText = randomResult;
+        function showMemeResult() {
+            const randomRes = memeResults[Math.floor(Math.random() * memeResults.length)];
+            
+            document.getElementById('emoji-icon').innerText = randomRes.emoji;
+            document.getElementById('result-text').innerText = randomRes.text;
+            document.getElementById('score-tag').innerText = randomRes.score;
+            
             document.getElementById('result-modal').classList.add('active');
         }
 
         function resetQuiz() {
             document.getElementById('result-modal').classList.remove('active');
-            isAnswered = false;
+            
+            // Reset ukuran & status
+            objects.forEach(obj => {
+                obj.scale.set(1, 1, 1);
+            });
+            
+            setTimeout(() => {
+                isAnswered = false;
+            }, 300);
         }
 
-        // Loop Render/Animasi
+        // Loop Animasi
         function animate() {
             requestAnimationFrame(animate);
 
-            // Kotak berputar perlahan saat idle
-            boxes.forEach((box, index) => {
+            // Objek goyang-goyang melayang
+            objects.forEach((obj, i) => {
                 if (!isAnswered) {
-                    box.rotation.x += 0.01;
-                    box.rotation.y += 0.01;
-                    box.position.y = Math.sin(Date.now() * 0.003 + index) * 0.2; // Efek melayang
+                    obj.rotation.x += 0.02;
+                    obj.rotation.y += 0.01;
+                    obj.position.y = Math.sin(Date.now() * 0.004 + i) * 0.3;
                 }
             });
 
